@@ -1,6 +1,6 @@
 <package>
 
-  <name>axis_camera</name>
+  <name>axis_camera_ptz</name>
   <version>0.3.0</version>
   <description>
     Python ROS drivers for accessing an Axis camera's MJPG
