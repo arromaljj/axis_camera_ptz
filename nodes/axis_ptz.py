@@ -11,6 +11,7 @@ from std_msgs.msg import Bool
 import math
 from dynamic_reconfigure.server import Server
 from axis_camera.cfg import PTZConfig
+from sensor_msgs.msg import JointState
 
 class StateThread(threading.Thread):
     '''This class handles the publication of the positional state of the camera 
@@ -25,11 +26,11 @@ class StateThread(threading.Thread):
 
     def run(self):
         r = rospy.Rate(1)
-        self.msg = Axis()
-
+        self.msg = Axis()        
         while True:
             self.queryCameraPosition()
             self.publishCameraState()
+            self.publishJointStates()
             r.sleep()
 
     def queryCameraPosition(self):
@@ -89,6 +90,20 @@ class StateThread(threading.Thread):
         except KeyError as e:
             rospy.logwarn("Camera not ready for polling its telemetry: " + repr(e.message))
             
+    def publishJointStates(self):
+		
+		# Publish the joint state
+		self.jsmsg = JointState()
+		self.jsmsg.header.stamp = rospy.Time.now()
+		
+		#if self.cameraPosition is not None:		
+		self.jsmsg.name = [self.axis.pan_joint, self.axis.tilt_joint]
+		self.jsmsg.position = [math.radians(float(self.msg.pan)), math.radians(float(self.msg.tilt))]
+		self.jsmsg.velocity = [0.0, 0.0]
+		self.jsmsg.effort = [0.0, 0.0]
+		
+		self.axis.joint_state_publisher.publish(self.jsmsg)
+            
     def adjustForFlippedOrientation(self):
         '''Correct pan and tilt parameters if camera is mounted backwards and 
         facing down'''
@@ -102,23 +117,29 @@ class StateThread(threading.Thread):
 class AxisPTZ:
     '''This class creates a node to manage the PTZ functions of an Axis PTZ 
     camera'''
-    def __init__(self, hostname, username, password, flip, speed_control):
-        self.hostname = hostname
-        self.username = username
-        self.password = password
-        self.flip = flip
+    def __init__(self, args):
+        self.hostname = args['hostname']
+        self.username = args['username']
+        self.password = args['password']
+        self.flip = args['flip']
+        self.joint_states_topic = args['joint_states_topic']
+        self.tilt_joint = args['tilt_joint']
+        self.pan_joint = args['pan_joint']
         # speed_control is true for speed control and false for
         # position control:
-        self.speedControl = speed_control
+        self.speedControl = args['speed_control']
         self.mirror = False
 
         self.st = None
         self.pub = rospy.Publisher("state", Axis, self, queue_size=1)
+		# Publish the joint state of the pan & tilt
+        self.joint_state_publisher = rospy.Publisher(self.joint_states_topic, JointState, self, queue_size=10)        
         self.sub = rospy.Subscriber("cmd", Axis, self.cmd, queue_size=1)
         self.sub_mirror = rospy.Subscriber("mirror", Bool, self.mirrorCallback,
                                                                 queue_size=1)
 
     def peer_subscribe(self, topic_name, topic_publish, peer_publish):
+        rospy.logwarn('subscription to:%s'%topic_name)
         '''Lazy-start the state publisher.'''
         if self.st is None:
             self.st = StateThread(self)
@@ -287,6 +308,9 @@ def main():
         'username': '',
         'password': '',
         'flip': False,  # things get weird if flip=true
+        'joint_states_topic': '/joint_states',
+        'pan_joint': 'pan',
+        'tilt_joint': 'tilt',
         'speed_control': False
         }
     args = {}
@@ -301,7 +325,7 @@ def main():
             args[name] = rospy.get_param(full_param_name, arg_defaults[name])
 
     # create new PTZ object and start dynamic_reconfigure server
-    my_ptz = AxisPTZ(**args)
+    my_ptz = AxisPTZ(args)
     srv = Server(PTZConfig, my_ptz.callback)
     rospy.spin()
 
