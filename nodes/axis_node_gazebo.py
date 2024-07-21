@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Software License Agreement (BSD License)
 #
@@ -276,7 +276,7 @@ class AxisPTZ(threading.Thread):
 
             r.sleep()
 
-        print 'Bye!'
+        print('Bye!')
 
 
     def publishROS(self):
@@ -524,7 +524,7 @@ def main():
     axis_node_name = rospy.get_name()
     axis_node_namespace = rospy.get_namespace()
 
-    print 'namespace = %s, name = %s'%(axis_node_namespace, axis_node_name)
+    print('namespace = %s, name = %s'%(axis_node_namespace, axis_node_name))
 
     # default params
     arg_defaults = {
