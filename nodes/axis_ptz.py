@@ -4,7 +4,7 @@
 #   http://www.axis.com/files/manuals/vapix_ptz_45621_en_1112.pdf
 #
 import threading
-import httplib, urllib
+import http.client as httplib, urllib
 import rospy 
 from axis_camera.msg import Axis
 from std_msgs.msg import Bool
